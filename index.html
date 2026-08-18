@@ -264,7 +264,7 @@ function popupHTML(p){
         <div class="row"><dt>Material</dt><dd>${p.Material_Category || '—'}</dd></div>
         <div class="row"><dt>Status</dt><dd>${statusLbl}</dd></div>
         <div class="row"><dt>Social Life</dt><dd>${p.Social_Life}</dd></div>
-        <div class="row" style="align-items:center;"><dt>Certainty</dt><dd style="display:flex; align-items:center;">
+        <div class="row"><dt>Certainty</dt><dd style="display:inline-flex; align-items:center;">
           ${'<span class="geom-dot solid"></span>'.repeat(4 - (p.Certainty_Score||1))}
           ${'<span class="geom-dot"></span>'.repeat((p.Certainty_Score||1) - 1)}
         </dd></div>
