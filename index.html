@@ -126,8 +126,21 @@
   .pop dt{color:var(--porcelain-dim); display:inline; font-weight:500;}
   .pop dd{display:inline; margin:0 0 0 4px;}
   .pop .row{margin-bottom:2px;}
-  .pop a{color:var(--cobalt); text-decoration:none; font-size:11px;}
-  .pop a:hover{text-decoration:underline;}
+/* Geometrically perfect dots with fixed dimensions */
+  .pop .geom-dot {
+    display: inline-block;
+    width: 8px !important;    /* Force fixed width */
+    height: 8px !important;   /* Force fixed height to ensure a perfect circle */
+    border-radius: 50%;
+    margin-right: 4px;
+    border: 1px solid var(--porcelain-dim);
+    box-sizing: border-box;   /* Prevent border from altering dimensions */
+    flex-shrink: 0;           /* Prevent squeezing into an oval */
+  }
+  .pop .geom-dot.solid {
+    background: var(--porcelain);
+    border-color: var(--porcelain);
+  }
 
   @media (max-width:640px){
     .hdr{max-width:78vw; padding:14px 16px;}
@@ -251,7 +264,10 @@ function popupHTML(p){
         <div class="row"><dt>Material</dt><dd>${p.Material_Category || '—'}</dd></div>
         <div class="row"><dt>Status</dt><dd>${statusLbl}</dd></div>
         <div class="row"><dt>Social Life</dt><dd>${p.Social_Life}</dd></div>
-        <div class="row"><dt>Certainty</dt><dd>${'●'.repeat(4 - (p.Certainty_Score||1))}${'○'.repeat((p.Certainty_Score||1) - 1)}</dd></div>
+        <div class="row" style="align-items:center;"><dt>Certainty</dt><dd style="display:flex; align-items:center;">
+          ${'<span class="geom-dot solid"></span>'.repeat(4 - (p.Certainty_Score||1))}
+          ${'<span class="geom-dot"></span>'.repeat((p.Certainty_Score||1) - 1)}
+        </dd></div>
       </dl>
       ${p.Source_URL ? `<div style="margin-top:8px;"><a href="${p.Source_URL}" target="_blank" rel="noopener">Source record →</a></div>` : ''}
     </div>`;
