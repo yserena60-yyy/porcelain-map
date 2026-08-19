@@ -357,7 +357,7 @@ const hitLayer = L.geoJSON(DATA, {
       closeTimer = setTimeout(() => {
         if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
         layer.closePopup();
-      }, 150);
+      }, 500);
     }
     layer.on('mouseover', () => {
       cancelClose();
