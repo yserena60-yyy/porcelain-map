@@ -176,11 +176,11 @@
 </div>
 
 <div class="legend">
-  <!-- Dynamic Location Filter -->
+  <!-- 1. Location Filter -->
   <div class="block">
     <h3>Filter by Location</h3>
     <div class="legend-row">
-      <select id="locationFilterSelect" onchange="filterByLocation()" style="width:100%; background:var(--ink); color:var(--porcelain); border:1px solid var(--line-hair); padding:4px; border-radius:2px; font-family:'IBM Plex Sans',sans-serif; font-size:11px;">
+      <select id="locationFilterSelect" onchange="applyFilters()" style="width:100%; background:var(--ink); color:var(--porcelain); border:1px solid var(--line-hair); padding:4px; border-radius:2px; font-family:'IBM Plex Sans',sans-serif; font-size:11px;">
         <option value="ALL">All Locations (Default)</option>
         <optgroup label="Origins">
           <option value="Jingdezhen, CN">Origin: Jingdezhen, CN</option>
@@ -198,6 +198,17 @@
           <option value="Florence, IT">Destination: Florence, IT</option>
           <option value="Saint Helena (Shipwreck)">Destination: Saint Helena (Shipwreck)</option>
         </optgroup>
+      </select>
+    </div>
+  </div>
+
+  <!-- 2. Individual Object ID Search -->
+  <div class="block" style="margin-top:8px;">
+    <h3>Inspect Individual Object</h3>
+    <div class="legend-row">
+      <select id="objectFilterSelect" onchange="applyFilters()" style="width:100%; background:var(--ink); color:var(--porcelain); border:1px solid var(--line-hair); padding:4px; border-radius:2px; font-family:'IBM Plex Sans',sans-serif; font-size:11px;">
+        <option value="ALL">All Objects (Show Map)</option>
+        <!-- JavaScript will automatically inject all object IDs here -->
       </select>
     </div>
   </div>
@@ -535,9 +546,10 @@ playBtn.addEventListener('click', () => {
     clearInterval(playTimer);
   }
 });
-  // ---------- Dynamic Location Filter System ----------
-function filterByLocation() {
-  const selectedValue = document.getElementById('locationFilterSelect').value;
+  // ---------- Combined Location & Object Filter System ----------
+function applyFilters() {
+  const locVal = document.getElementById('locationFilterSelect').value;
+  const objVal = document.getElementById('objectFilterSelect').value;
   let visibleCount = 0;
 
   geoLayer.eachLayer(layer => {
@@ -545,30 +557,47 @@ function filterByLocation() {
     const el = layer.getElement ? layer.getElement() : null;
     const hitEl = hitLayerById.get(p.Object_ID)?.getElement ? hitLayerById.get(p.Object_ID).getElement() : null;
 
-    if (selectedValue === 'ALL') {
+    // 1. If an individual object is specifically selected, it takes highest precedence
+    let show = true;
+    if (objVal !== 'ALL') {
+      show = (p.Object_ID === objVal);
+    } else {
+      // 2. Otherwise, apply location filter
+      if (locVal !== 'ALL') {
+        show = (p.Origin_Name && p.Origin_Name.includes(locVal)) ||
+               (p.Dest_Name && p.Dest_Name.includes(locVal));
+      }
+    }
+
+    if (show) {
       if (el) el.style.display = '';
       if (hitEl) hitEl.style.display = '';
       setArrowVisible(layer.feature, true);
       visibleCount++;
     } else {
-      const matches = (p.Origin_Name && p.Origin_Name.includes(selectedValue)) ||
-                      (p.Dest_Name && p.Dest_Name.includes(selectedValue));
-
-      if (matches) {
-        if (el) el.style.display = '';
-        if (hitEl) hitEl.style.display = '';
-        setArrowVisible(layer.feature, true);
-        visibleCount++;
-      } else {
-        if (el) el.style.display = 'none';
-        if (hitEl) hitEl.style.display = 'none';
-        setArrowVisible(layer.feature, false);
-      }
+      if (el) el.style.display = 'none';
+      if (hitEl) hitEl.style.display = 'none';
+      setArrowVisible(layer.feature, false);
     }
   });
 
   countLabel.textContent = `${visibleCount} / ${DATA.features.length} routes`;
 }
+  // Automatically populate the individual object dropdown
+window.addEventListener('DOMContentLoaded', () => {
+  const objSelect = document.getElementById('objectFilterSelect');
+  if (objSelect && window.DATA && DATA.features) {
+    DATA.features.forEach(feature => {
+      const objId = feature.properties.Object_ID;
+      if (objId) {
+        const option = document.createElement('option');
+        option.value = objId;
+        option.textContent = `Object: ${objId}`;
+        objSelect.appendChild(option);
+      }
+    });
+  }
+});
 </script>
 </body>
 </html>
