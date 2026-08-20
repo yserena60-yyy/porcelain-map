@@ -375,6 +375,7 @@ function popupHTML(p){
 // hit target while the visible line stays thin.
 const visibleLayerById = new Map();
 const hitLayerById = new Map();
+
 const geoLayer = L.geoJSON(DATA, {
   style: (feature) => feature.geometry.type === 'LineString'
     ? { ...styleFor(feature.properties), interactive: false }
@@ -385,21 +386,17 @@ const geoLayer = L.geoJSON(DATA, {
   }
 }).addTo(map);
 
-const hitLayer = L.geoJSON(DATA, {
-  style: (feature) => feature.geometry.type === 'LineString'
-    ? { weight: 18, opacity: 0, color: '#000', lineCap: 'round', lineJoin: 'round' }
-    : {},
-  pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 14, opacity: 0, fillOpacity: 0 }),
-  // 1. Add these global variables right above your hitLayer to act as a "lock"
+// ---------- Global Interactive Hover Lock State ----------
 let globalPopupLock = false;
 let globalCloseTimer = null;
 let activeLayerId = null;
 
 const hitLayer = L.geoJSON(DATA, {
-  style: (feature) => feature.geometry.type === 'LineString' ? { weight: 18, opacity: 0, color: '#000', lineCap: 'round', lineJoin: 'round' } : {},
+  style: (feature) => feature.geometry.type === 'LineString'
+    ? { weight: 18, opacity: 0, color: '#000', lineCap: 'round', lineJoin: 'round' }
+    : {},
   pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 14, opacity: 0, fillOpacity: 0 }),
   
-  // 2. Replace the entire onEachFeature block
   onEachFeature: (feature, layer) => {
     hitLayerById.set(feature.properties.Object_ID, layer);
     
@@ -413,7 +410,7 @@ const hitLayer = L.geoJSON(DATA, {
     const visLine = visibleLayerById.get(feature.properties.Object_ID);
     
     layer.on('mouseover', (e) => {
-      // THE MAGIC: If a card is open or in its grace period, ignore all other lines!
+      // If a card is open or in its grace period, ignore all other lines!
       if (globalPopupLock && activeLayerId !== feature.properties.Object_ID) {
         return; 
       }
@@ -437,7 +434,6 @@ const hitLayer = L.geoJSON(DATA, {
         if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
         layer.closePopup();
         
-        // Unlock the map after the delay or when the popup closes
         globalPopupLock = false;
         activeLayerId = null;
       }, 1000); 
@@ -464,7 +460,7 @@ const hitLayer = L.geoJSON(DATA, {
     });
   }
 }).addTo(map);
-
+  
 // ---------- arrowheads at route destinations ----------
 // One small rotated triangle marker per route, oriented along the curve's final
 // segment and colored/opacity-matched to that route's own style.
