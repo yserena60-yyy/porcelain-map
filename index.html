@@ -386,76 +386,113 @@ const geoLayer = L.geoJSON(DATA, {
   }
 }).addTo(map);
 
-// ---------- Global Interactive Hover Lock State ----------
-let globalPopupLock = false;
-let globalCloseTimer = null;
-let activeLayerId = null;
+// 1. Global state variables for the Pause-to-Lock system
+let activeLock = false;
+let lockTimer = null;
+let closeTimer = null;
+let activeFeatureId = null;
 
 const hitLayer = L.geoJSON(DATA, {
-  style: (feature) => feature.geometry.type === 'LineString'
-    ? { weight: 18, opacity: 0, color: '#000', lineCap: 'round', lineJoin: 'round' }
+  style: (feature) => feature.geometry.type === 'LineString' 
+    ? { weight: 18, opacity: 0, color: '#000', lineCap: 'round', lineJoin: 'round' } 
     : {},
   pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 14, opacity: 0, fillOpacity: 0 }),
   
   onEachFeature: (feature, layer) => {
     hitLayerById.set(feature.properties.Object_ID, layer);
     
+    // Set a tight offset so the card cleanly follows the cursor before locking
     layer.bindPopup(popupHTML(feature.properties), { 
       maxWidth: 280, 
       closeButton: false, 
       autoPan: false, 
-      offset: [0, -10] 
+      offset: [10, -10] 
     });
     
     const visLine = visibleLayerById.get(feature.properties.Object_ID);
     
-    layer.on('mouseover', (e) => {
-      // If a card is open or in its grace period, ignore all other lines!
-      if (globalPopupLock && activeLayerId !== feature.properties.Object_ID) {
-        return; 
-      }
+    // Helper to completely clear locks when a card is closed
+    function resetLocks() {
+      activeLock = false;
+      activeFeatureId = null;
+      clearTimeout(lockTimer);
+      clearTimeout(closeTimer);
+    }
 
-      // Lock focus on this specific route
-      clearTimeout(globalCloseTimer);
-      globalPopupLock = true;
-      activeLayerId = feature.properties.Object_ID;
+    layer.on('mouseover', (e) => {
+      // If another card is firmly locked, ignore this hover entirely
+      if (activeLock && activeFeatureId !== feature.properties.Object_ID) return;
+      
+      clearTimeout(closeTimer);
+      activeFeatureId = feature.properties.Object_ID;
       
       if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 5 });
       
       if (!layer.isPopupOpen()) {
         layer.openPopup(e.latlng); 
       }
+
+      // Start the lock timer: If the cursor rests here for 800ms, anchor the card.
+      clearTimeout(lockTimer);
+      lockTimer = setTimeout(() => {
+        activeLock = true;
+      }, 800); 
     });
-    
+
+    layer.on('mousemove', (e) => {
+      if (activeLock && activeFeatureId !== feature.properties.Object_ID) return;
+
+      // If the card is NOT locked yet, make it smoothly follow the cursor
+      if (!activeLock && layer.isPopupOpen()) {
+        layer.getPopup().setLatLng(e.latlng);
+        
+        // Reset the lock timer because the cursor is still moving. 
+        // You must stop moving for 800ms to trigger the lock.
+        clearTimeout(lockTimer);
+        lockTimer = setTimeout(() => {
+          activeLock = true;
+        }, 800);
+      }
+    });
+
     layer.on('mouseout', (e) => {
-      // When the mouse leaves the route, start a 1-second (1000ms) grace period
-      clearTimeout(globalCloseTimer);
-      globalCloseTimer = setTimeout(() => {
+      if (activeLock && activeFeatureId !== feature.properties.Object_ID) return;
+
+      // Cancel the lock timer in case they swiped away before it locked
+      clearTimeout(lockTimer); 
+
+      if (activeLock) {
+        // The card was locked! Start a 1-second grace period so the mouse can reach the card.
+        closeTimer = setTimeout(() => {
+          if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
+          layer.closePopup();
+          resetLocks();
+        }, 1000);
+      } else {
+        // It was just a quick swipe. Close the card immediately.
         if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
         layer.closePopup();
-        
-        globalPopupLock = false;
-        activeLayerId = null;
-      }, 1000); 
+        resetLocks();
+      }
     });
-    
+
     layer.on('popupopen', (e) => {
       const cardEl = e.popup.getElement();
       if (!cardEl) return;
       
       cardEl.addEventListener('mouseenter', () => {
-        // The mouse successfully reached the card! Cancel the timer and maintain the lock.
-        clearTimeout(globalCloseTimer);
-        globalPopupLock = true;
+        // Mouse reached the locked card! Clear the close timer and maintain the lock.
+        if (activeFeatureId === feature.properties.Object_ID) {
+          clearTimeout(closeTimer);
+          activeLock = true; 
+        }
       });
       
       cardEl.addEventListener('mouseleave', () => {
-        // The mouse left the card itself. Close immediately and unlock the map.
+        // Mouse left the card. Close it instantly and unlock the map for the next route.
         if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
         layer.closePopup();
-        
-        globalPopupLock = false;
-        activeLayerId = null;
+        resetLocks();
       });
     });
   }
