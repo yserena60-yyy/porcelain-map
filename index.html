@@ -204,14 +204,11 @@
 
   <!-- 2. Individual Object ID Search -->
   <div class="block" style="margin-top:8px;">
-    <h3>Inspect Individual Object</h3>
-    <div class="legend-row">
-      <select id="objectFilterSelect" onchange="applyFilters()" style="width:100%; background:var(--ink); color:var(--porcelain); border:1px solid var(--line-hair); padding:4px; border-radius:2px; font-family:'IBM Plex Sans',sans-serif; font-size:11px;">
-        <option value="ALL">All Objects (Show Map)</option>
-        <!-- JavaScript will automatically inject all object IDs here -->
-      </select>
-    </div>
+  <h3>Search Object ID</h3>
+  <div class="legend-row">
+    <input type="text" id="objectSearchInput" placeholder="e.g. SKD_PO3801" oninput="applyFilters()" style="width:100%; background:var(--ink); color:var(--porcelain); border:1px solid var(--line-hair); padding:4px 6px; border-radius:2px; font-family:'IBM Plex Sans',sans-serif; font-size:11px; box-sizing: border-box;" />
   </div>
+</div>
 
   <div class="block">
     <h3>Data Status</h3>
@@ -546,10 +543,11 @@ playBtn.addEventListener('click', () => {
     clearInterval(playTimer);
   }
 });
+  
   // ---------- Combined Location & Object Filter System ----------
 function applyFilters() {
   const locVal = document.getElementById('locationFilterSelect').value;
-  const objVal = document.getElementById('objectFilterSelect').value;
+  const searchVal = document.getElementById('objectSearchInput').value.trim().toLowerCase();
   let visibleCount = 0;
 
   geoLayer.eachLayer(layer => {
@@ -557,10 +555,12 @@ function applyFilters() {
     const el = layer.getElement ? layer.getElement() : null;
     const hitEl = hitLayerById.get(p.Object_ID)?.getElement ? hitLayerById.get(p.Object_ID).getElement() : null;
 
-    // 1. If an individual object is specifically selected, it takes highest precedence
     let show = true;
-    if (objVal !== 'ALL') {
-      show = (p.Object_ID === objVal);
+
+    // 1. If text is typed into the search box, it takes highest precedence
+    if (searchVal.length > 0) {
+      const objIdLower = (p.Object_ID || '').toLowerCase();
+      show = objIdLower.includes(searchVal);
     } else {
       // 2. Otherwise, apply location filter
       if (locVal !== 'ALL') {
@@ -583,6 +583,7 @@ function applyFilters() {
 
   countLabel.textContent = `${visibleCount} / ${DATA.features.length} routes`;
 }
+  
   // Automatically populate the individual object dropdown
 window.addEventListener('DOMContentLoaded', () => {
   const objSelect = document.getElementById('objectFilterSelect');
