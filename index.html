@@ -544,25 +544,46 @@ playBtn.addEventListener('click', () => {
   }
 });
   
-  // ---------- Combined Location & Object Filter System ----------
+  // ---------- Combined Location & Object Search System (with Smart Label Toggling) ----------
 function applyFilters() {
   const locVal = document.getElementById('locationFilterSelect').value;
   const searchVal = document.getElementById('objectSearchInput').value.trim().toLowerCase();
   let visibleCount = 0;
 
+  // 1. Collect all location names involved in the currently active routes
+  const activeLocations = new Set();
+
+  geoLayer.eachLayer(layer => {
+    const p = layer.feature.properties;
+    let show = true;
+
+    if (searchVal.length > 0) {
+      const objIdLower = (p.Object_ID || '').toLowerCase();
+      show = objIdLower.includes(searchVal);
+    } else {
+      if (locVal !== 'ALL') {
+        show = (p.Origin_Name && p.Origin_Name.includes(locVal)) ||
+               (p.Dest_Name && p.Dest_Name.includes(locVal));
+      }
+    }
+
+    if (show) {
+      if (p.Origin_Name) activeLocations.add(p.Origin_Name);
+      if (p.Dest_Name) activeLocations.add(p.Dest_Name);
+    }
+  });
+
+  // 2. Control visibility for routes and hit layers based on filter results
   geoLayer.eachLayer(layer => {
     const p = layer.feature.properties;
     const el = layer.getElement ? layer.getElement() : null;
     const hitEl = hitLayerById.get(p.Object_ID)?.getElement ? hitLayerById.get(p.Object_ID).getElement() : null;
 
     let show = true;
-
-    // 1. If text is typed into the search box, it takes highest precedence
     if (searchVal.length > 0) {
       const objIdLower = (p.Object_ID || '').toLowerCase();
       show = objIdLower.includes(searchVal);
     } else {
-      // 2. Otherwise, apply location filter
       if (locVal !== 'ALL') {
         show = (p.Origin_Name && p.Origin_Name.includes(locVal)) ||
                (p.Dest_Name && p.Dest_Name.includes(locVal));
@@ -580,6 +601,18 @@ function applyFilters() {
       setArrowVisible(layer.feature, false);
     }
   });
+
+  // 3. Automatically toggle location label visibility to hide unreferenced places
+  if (window.locationLabelsLayer) {
+    locationLabelsLayer.eachLayer(marker => {
+      const labelName = marker.options.title || marker.feature?.properties?.name;
+      if (activeLocations.has(labelName)) {
+        if (marker.getElement()) marker.getElement().style.display = '';
+      } else {
+        if (marker.getElement()) marker.getElement().style.display = 'none';
+      }
+    });
+  }
 
   countLabel.textContent = `${visibleCount} / ${DATA.features.length} routes`;
 }
