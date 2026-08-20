@@ -393,7 +393,7 @@ const hitLayer = L.geoJSON(DATA, {
   onEachFeature: (feature, layer) => {
     hitLayerById.set(feature.properties.Object_ID, layer);
     
-    // 1. Small offset to float just above the cursor
+    // 1. Initial setup with a small offset
     layer.bindPopup(popupHTML(feature.properties), { 
       maxWidth: 280, 
       closeButton: false, 
@@ -403,24 +403,33 @@ const hitLayer = L.geoJSON(DATA, {
     
     const visLine = visibleLayerById.get(feature.properties.Object_ID);
     let closeTimer = null;
+    let hoverStartTime = 0; // Tracks when the user first triggered the popup
     
-    function cancelClose(){ clearTimeout(closeTimer); }
+    function cancelClose() { clearTimeout(closeTimer); }
     
-    function scheduleClose(){
+    function scheduleClose() {
       cancelClose();
+      
+      // Calculate how many milliseconds the cursor remained on the route or popup
+      const hoverDuration = Date.now() - hoverStartTime;
+      
+      // If the user hovered for more than 2 seconds (2000ms), grant a 4-second delay before closing.
+      // Otherwise, use the standard snappy 500ms delay.
+      const delayTime = hoverDuration > 2000 ? 4000 : 500;
+      
       closeTimer = setTimeout(() => {
         if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
         layer.closePopup();
-      }, 500); // 500ms delay gives you time to move the mouse into the card
+      }, delayTime);
     }
     
-    // 2. Anchor the popup at the entry point and KEEP IT STILL
+    // 2. Trigger popup and start the hover timer
     layer.on('mouseover', (e) => {
       cancelClose();
+      hoverStartTime = Date.now(); // Record the exact time the hover started
+      
       if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 5 });
       
-      // Only set the position if it's not already open. 
-      // This prevents the card from teleporting while you try to click it.
       if (!layer.isPopupOpen()) {
         layer.openPopup(e.latlng); 
       }
@@ -428,11 +437,17 @@ const hitLayer = L.geoJSON(DATA, {
     
     layer.on('mouseout', scheduleClose);
     
-    // 3. Keep the popup open when the mouse enters the card itself
+    // 3. Handle interactions inside the popup card itself
     layer.on('popupopen', (e) => {
       const cardEl = e.popup.getElement();
       if (!cardEl) return;
-      cardEl.addEventListener('mouseenter', cancelClose);
+      
+      cardEl.addEventListener('mouseenter', () => {
+        cancelClose();
+        // Reset the start time so that moving inside the card guarantees the long delay upon exit
+        hoverStartTime = Date.now(); 
+      });
+      
       cardEl.addEventListener('mouseleave', scheduleClose);
     });
   }
