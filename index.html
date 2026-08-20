@@ -544,7 +544,7 @@ playBtn.addEventListener('click', () => {
   }
 });
   
-  // ---------- Combined Location & Object Search System (with Smart Label Toggling) ----------
+  // ---------- Combined Location & Object Search System (with Clean Label Isolation) ----------
 function applyFilters() {
   const locVal = document.getElementById('locationFilterSelect').value;
   const searchVal = document.getElementById('objectSearchInput').value.trim().toLowerCase();
@@ -602,7 +602,7 @@ function applyFilters() {
     }
   });
 
-  // 3. Automatically toggle location label visibility to hide unreferenced places
+  // 3. Automatically toggle location label visibility to hide unreferenced custom labels
   if (window.locationLabelsLayer) {
     locationLabelsLayer.eachLayer(marker => {
       const labelName = marker.options.title || marker.feature?.properties?.name;
@@ -614,9 +614,14 @@ function applyFilters() {
     });
   }
 
+  // 4. Force-hide base map text overlays/labels when an individual object search is active
+  const mapLabelsContainer = document.querySelector('.leaflet-pane.leaflet-marker-pane');
+  if (mapLabelsContainer) {
+    mapLabelsContainer.style.display = (searchVal.length > 0) ? 'none' : '';
+  }
+
   countLabel.textContent = `${visibleCount} / ${DATA.features.length} routes`;
 }
-  
   // Automatically populate the individual object dropdown
 window.addEventListener('DOMContentLoaded', () => {
   const objSelect = document.getElementById('objectFilterSelect');
