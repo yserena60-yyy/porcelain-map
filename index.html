@@ -393,13 +393,12 @@ const hitLayer = L.geoJSON(DATA, {
   onEachFeature: (feature, layer) => {
     hitLayerById.set(feature.properties.Object_ID, layer);
     
-    // 1. Shift the popup to the top-right of the cursor.
-    // [140, -30] pushes the card 140px right and 30px up from the mouse pointer.
+    // 1. Use a small offset so the popup sits right next to the cursor
     layer.bindPopup(popupHTML(feature.properties), { 
       maxWidth: 280, 
       closeButton: false, 
       autoPan: false, 
-      offset: [140, -30] 
+      offset: [10, -10] // <--- Changed from [140, -30] back to a small gap
     });
     
     const visLine = visibleLayerById.get(feature.properties.Object_ID);
@@ -415,12 +414,20 @@ const hitLayer = L.geoJSON(DATA, {
       }, 500);
     }
     
-    // 2. Open the popup exactly at the mouse's current coordinates (e.latlng)
+    // 2. Open the popup exactly at the mouse's current coordinates
     layer.on('mouseover', (e) => {
       cancelClose();
       if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 5 });
       
+      // Forces the popup to appear at the exact location of the mouse pointer
       layer.openPopup(e.latlng); 
+    });
+    
+    // 3. Optional: Make the popup smoothly follow the mouse while hovering along the line
+    layer.on('mousemove', (e) => {
+      if (layer.isPopupOpen()) {
+        layer.getPopup().setLatLng(e.latlng);
+      }
     });
     
     layer.on('mouseout', scheduleClose);
