@@ -478,7 +478,8 @@ playBtn.addEventListener('click', () => {
   }
 });
 
-// ---------- Combined Filter and Smart Label Isolation System ----------
+
+ // ---------- Combined Filter and Smart Label Isolation System ----------
 function applyFilters() {
   const locVal = document.getElementById('locationFilterSelect').value;
   const searchVal = document.getElementById('objectSearchInput').value.trim().toLowerCase();
@@ -546,11 +547,10 @@ function applyFilters() {
     }
   });
 
-  // Completely toggle off background label tiles when searching individual objects
-  if (searchVal.length > 0) {
-    if (map.hasLayer(labelTileLayer)) map.removeLayer(labelTileLayer);
-  } else {
-    if (!map.hasLayer(labelTileLayer)) map.addLayer(labelTileLayer);
+  // Safely toggle background label opacity without breaking the map canvas
+  const labelContainer = labelTileLayer.getContainer();
+  if (labelContainer) {
+    labelContainer.style.opacity = (searchVal.length > 0) ? '0' : '0.55';
   }
 
   countLabel.textContent = `${visibleCount} / ${DATA.features.length} routes`;
