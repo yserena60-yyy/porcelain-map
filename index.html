@@ -393,12 +393,12 @@ const hitLayer = L.geoJSON(DATA, {
   onEachFeature: (feature, layer) => {
     hitLayerById.set(feature.properties.Object_ID, layer);
     
-    // 1. Use a small offset so the popup sits right next to the cursor
+    // 1. Small offset to float just above the cursor
     layer.bindPopup(popupHTML(feature.properties), { 
       maxWidth: 280, 
       closeButton: false, 
       autoPan: false, 
-      offset: [10, -10] // <--- Changed from [140, -30] back to a small gap
+      offset: [0, -10] 
     });
     
     const visLine = visibleLayerById.get(feature.properties.Object_ID);
@@ -411,27 +411,24 @@ const hitLayer = L.geoJSON(DATA, {
       closeTimer = setTimeout(() => {
         if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
         layer.closePopup();
-      }, 500);
+      }, 500); // 500ms delay gives you time to move the mouse into the card
     }
     
-    // 2. Open the popup exactly at the mouse's current coordinates
+    // 2. Anchor the popup at the entry point and KEEP IT STILL
     layer.on('mouseover', (e) => {
       cancelClose();
       if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 5 });
       
-      // Forces the popup to appear at the exact location of the mouse pointer
-      layer.openPopup(e.latlng); 
-    });
-    
-    // 3. Optional: Make the popup smoothly follow the mouse while hovering along the line
-    layer.on('mousemove', (e) => {
-      if (layer.isPopupOpen()) {
-        layer.getPopup().setLatLng(e.latlng);
+      // Only set the position if it's not already open. 
+      // This prevents the card from teleporting while you try to click it.
+      if (!layer.isPopupOpen()) {
+        layer.openPopup(e.latlng); 
       }
     });
     
     layer.on('mouseout', scheduleClose);
     
+    // 3. Keep the popup open when the mouse enters the card itself
     layer.on('popupopen', (e) => {
       const cardEl = e.popup.getElement();
       if (!cardEl) return;
