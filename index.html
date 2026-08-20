@@ -479,12 +479,13 @@ playBtn.addEventListener('click', () => {
 });
 
 
- // ---------- Combined Filter and Smart Label Isolation System ----------
+// ---------- Safe & Clean Filter System ----------
 function applyFilters() {
   const locVal = document.getElementById('locationFilterSelect').value;
   const searchVal = document.getElementById('objectSearchInput').value.trim().toLowerCase();
   let visibleCount = 0;
 
+  // 1. Collect all location names involved in the currently active routes
   const activeLocations = new Set();
 
   geoLayer.eachLayer(layer => {
@@ -507,6 +508,7 @@ function applyFilters() {
     }
   });
 
+  // 2. Control visibility for routes and hit layers based on filter results
   geoLayer.eachLayer(layer => {
     const p = layer.feature.properties;
     const el = layer.getElement ? layer.getElement() : null;
@@ -535,7 +537,7 @@ function applyFilters() {
     }
   });
 
-  // Toggle custom city text markers based on active routes
+  // 3. Toggle custom city text markers based on active routes safely
   locationMarkers.forEach(({ marker, name }) => {
     const markerEl = marker.getElement();
     if (markerEl) {
@@ -546,12 +548,6 @@ function applyFilters() {
       }
     }
   });
-
-  // Safely toggle background label opacity without breaking the map canvas
-  const labelContainer = labelTileLayer.getContainer();
-  if (labelContainer) {
-    labelContainer.style.opacity = (searchVal.length > 0) ? '0' : '0.55';
-  }
 
   countLabel.textContent = `${visibleCount} / ${DATA.features.length} routes`;
 }
