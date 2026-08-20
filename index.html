@@ -390,10 +390,19 @@ const hitLayer = L.geoJSON(DATA, {
     ? { weight: 18, opacity: 0, color: '#000', lineCap: 'round', lineJoin: 'round' }
     : {},
   pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 14, opacity: 0, fillOpacity: 0 }),
+  // 1. Add these global variables right above your hitLayer to act as a "lock"
+let globalPopupLock = false;
+let globalCloseTimer = null;
+let activeLayerId = null;
+
+const hitLayer = L.geoJSON(DATA, {
+  style: (feature) => feature.geometry.type === 'LineString' ? { weight: 18, opacity: 0, color: '#000', lineCap: 'round', lineJoin: 'round' } : {},
+  pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 14, opacity: 0, fillOpacity: 0 }),
+  
+  // 2. Replace the entire onEachFeature block
   onEachFeature: (feature, layer) => {
     hitLayerById.set(feature.properties.Object_ID, layer);
     
-    // 1. Initial setup with a small offset
     layer.bindPopup(popupHTML(feature.properties), { 
       maxWidth: 280, 
       closeButton: false, 
@@ -402,31 +411,17 @@ const hitLayer = L.geoJSON(DATA, {
     });
     
     const visLine = visibleLayerById.get(feature.properties.Object_ID);
-    let closeTimer = null;
-    let hoverStartTime = 0; // Tracks when the user first triggered the popup
     
-    function cancelClose() { clearTimeout(closeTimer); }
-    
-    function scheduleClose() {
-      cancelClose();
-      
-      // Calculate how many milliseconds the cursor remained on the route or popup
-      const hoverDuration = Date.now() - hoverStartTime;
-      
-      // If the user hovered for more than 2 seconds (2000ms), grant a 4-second delay before closing.
-      // Otherwise, use the standard snappy 500ms delay.
-      const delayTime = hoverDuration > 2000 ? 4000 : 500;
-      
-      closeTimer = setTimeout(() => {
-        if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
-        layer.closePopup();
-      }, delayTime);
-    }
-    
-    // 2. Trigger popup and start the hover timer
     layer.on('mouseover', (e) => {
-      cancelClose();
-      hoverStartTime = Date.now(); // Record the exact time the hover started
+      // THE MAGIC: If a card is open or in its grace period, ignore all other lines!
+      if (globalPopupLock && activeLayerId !== feature.properties.Object_ID) {
+        return; 
+      }
+
+      // Lock focus on this specific route
+      clearTimeout(globalCloseTimer);
+      globalPopupLock = true;
+      activeLayerId = feature.properties.Object_ID;
       
       if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 5 });
       
@@ -435,20 +430,37 @@ const hitLayer = L.geoJSON(DATA, {
       }
     });
     
-    layer.on('mouseout', scheduleClose);
+    layer.on('mouseout', (e) => {
+      // When the mouse leaves the route, start a 1-second (1000ms) grace period
+      clearTimeout(globalCloseTimer);
+      globalCloseTimer = setTimeout(() => {
+        if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
+        layer.closePopup();
+        
+        // Unlock the map after the delay or when the popup closes
+        globalPopupLock = false;
+        activeLayerId = null;
+      }, 1000); 
+    });
     
-    // 3. Handle interactions inside the popup card itself
     layer.on('popupopen', (e) => {
       const cardEl = e.popup.getElement();
       if (!cardEl) return;
       
       cardEl.addEventListener('mouseenter', () => {
-        cancelClose();
-        // Reset the start time so that moving inside the card guarantees the long delay upon exit
-        hoverStartTime = Date.now(); 
+        // The mouse successfully reached the card! Cancel the timer and maintain the lock.
+        clearTimeout(globalCloseTimer);
+        globalPopupLock = true;
       });
       
-      cardEl.addEventListener('mouseleave', scheduleClose);
+      cardEl.addEventListener('mouseleave', () => {
+        // The mouse left the card itself. Close immediately and unlock the map.
+        if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 3 });
+        layer.closePopup();
+        
+        globalPopupLock = false;
+        activeLayerId = null;
+      });
     });
   }
 }).addTo(map);
