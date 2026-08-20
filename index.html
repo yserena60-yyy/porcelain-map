@@ -392,10 +392,21 @@ const hitLayer = L.geoJSON(DATA, {
   pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 14, opacity: 0, fillOpacity: 0 }),
   onEachFeature: (feature, layer) => {
     hitLayerById.set(feature.properties.Object_ID, layer);
-    layer.bindPopup(popupHTML(feature.properties), { maxWidth: 280, closeButton: false, autoPan: false });
+    
+    // 1. Shift the popup to the top-right of the cursor.
+    // [140, -30] pushes the card 140px right and 30px up from the mouse pointer.
+    layer.bindPopup(popupHTML(feature.properties), { 
+      maxWidth: 280, 
+      closeButton: false, 
+      autoPan: false, 
+      offset: [140, -30] 
+    });
+    
     const visLine = visibleLayerById.get(feature.properties.Object_ID);
     let closeTimer = null;
+    
     function cancelClose(){ clearTimeout(closeTimer); }
+    
     function scheduleClose(){
       cancelClose();
       closeTimer = setTimeout(() => {
@@ -403,12 +414,17 @@ const hitLayer = L.geoJSON(DATA, {
         layer.closePopup();
       }, 500);
     }
-    layer.on('mouseover', () => {
+    
+    // 2. Open the popup exactly at the mouse's current coordinates (e.latlng)
+    layer.on('mouseover', (e) => {
       cancelClose();
       if (visLine && feature.geometry.type === 'LineString') visLine.setStyle({ weight: 5 });
-      layer.openPopup();
+      
+      layer.openPopup(e.latlng); 
     });
+    
     layer.on('mouseout', scheduleClose);
+    
     layer.on('popupopen', (e) => {
       const cardEl = e.popup.getElement();
       if (!cardEl) return;
